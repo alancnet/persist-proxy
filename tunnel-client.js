@@ -1,11 +1,11 @@
 const rx = require('rx');
 const connect = require('./connect');
 
-const userClient = (config) => (socket) => {
+const tunnelClient = (config) => (socket) => {
   const disconnected = new rx.Subject();
   const terminated = new rx.Subject();
   const outgoing = new rx.Subject();
-  connect(config)
+  connect({host: config['remote-host'], port: config['remote-port']})
     .takeUntil(disconnected)
     .repeat()
     .takeUntil(terminated)
