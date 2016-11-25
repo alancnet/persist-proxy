@@ -1,5 +1,6 @@
 const rx = require('rx');
 const net = require('net');
+const socket = require('./socket');
 
 const bind = (config) => rx.Observable.create(observer => {
   const port = (config && config['listen-port']) || 5150;
@@ -7,7 +8,7 @@ const bind = (config) => rx.Observable.create(observer => {
   const onServerListening = () => {
     console.info(`Listening on tcp://${host}:${port}`);
   };
-  const server = net.createServer(observer.onNext.bind(observer));
+  const server = net.createServer((s) => observer.onNext(socket(s)));
   server.on('error', observer.onError.bind(observer));
   server.on('listening', onServerListening);
   server.listen(port, host);

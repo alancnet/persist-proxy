@@ -9,6 +9,4 @@ const tunnelClient = (config) => (socket) => {
     .takeUntil(disconnected)
     .repeat()
     .takeUntil(terminated)
-
-
 }

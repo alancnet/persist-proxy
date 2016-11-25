@@ -28,6 +28,9 @@ const userClient = require('./user-client');
 
 const mode = args._[0]
 
+const rxx = require('alco/rxx');
+rxx.assign();
+
 var mainStream;
 switch (args._[0]) {
   case "client":
