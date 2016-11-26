@@ -1,6 +1,5 @@
 const rx = require('rx');
 const net = require('net');
-const socket = require('./socket');
 
 const bind = (config) => rx.Observable.create(observer => {
   const port = (config && config['listen-port']) || 5150;

@@ -1,5 +1,4 @@
 const rx = require('rx');
-const connect = require('./connect');
 const net = require('net');
 const serialStream = require('serial-stream');
 const uuid = require('uuid');

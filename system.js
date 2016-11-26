@@ -1,5 +1,0 @@
-class System {
-  constructor(config) {
-
-  }
-}
