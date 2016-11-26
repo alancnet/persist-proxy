@@ -3,8 +3,9 @@ const rx = require('rx');
 const socket = (socket) => rx.Observable.create((observer) => {
   observer.onNext({
     type: 'connected',
+    socket: socket,
     onNext: (data) => socket.send(data),
-    onError: (err) => throw err,
+    onError: (err) => {throw err},
     onCompleted: () => socket.close()
   });
 

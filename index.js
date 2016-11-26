@@ -24,7 +24,8 @@ const bind = require('./bind');
 
 const args = require('yargs-parser')(process.argv.slice(2));
 
-const userClient = require('./user-client');
+const tunnelClient = require('./tunnel-client');
+const tunnelServer = require('./tunnel-server');
 
 const mode = args._[0]
 
@@ -34,10 +35,16 @@ rxx.assign();
 var mainStream;
 switch (args._[0]) {
   case "client":
-    mainStream = bind(args).flatMap(userClient(config));
+    mainStream = bind(args).map(tunnelClient({
+      connectHost: args['connect-host'],
+      connectPort: args['connect-port']
+    }));
     break;
   case "server":
-    mainStream = bind(args).flatMap(tunnelServer(config));
+    mainStream = bind(args).map(tunnelServer({
+      connectHost: args['connect-host'],
+      connectPort: args['connect-port']
+    }));
     break;
   default:
     console.log(`

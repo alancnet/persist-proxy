@@ -8,7 +8,7 @@ const bind = (config) => rx.Observable.create(observer => {
   const onServerListening = () => {
     console.info(`Listening on tcp://${host}:${port}`);
   };
-  const server = net.createServer((s) => observer.onNext(socket(s)));
+  const server = net.createServer((s) => observer.onNext(s));
   server.on('error', observer.onError.bind(observer));
   server.on('listening', onServerListening);
   server.listen(port, host);

@@ -10,8 +10,9 @@
   "license": "ISC",
   "dependencies": {
     "alco": "0.0.3",
-    "async-streams": "0.0.1",
     "rx": "^4.1.0",
+    "serial-stream": "0.0.1",
+    "uuid": "^3.0.0",
     "yargs-parser": "^4.0.2"
   },
   "devDependencies": {

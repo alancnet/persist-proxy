@@ -7,7 +7,7 @@ const connect = (config) => {
     const s = net.connect(config, (err) => {
       if (err) observer.onError(err);
       else observer.onNext(socket(s));
-    };
+    });
   }).flatten().share();
 }
 
