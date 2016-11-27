@@ -24,7 +24,7 @@ persist-proxy --listen-host 123.45.6.78 --listen-port 30002 --connect-host 127.0
 
 ## Why persist-proxy?
 
-I build this program because I personally run Windows 10 as my main OS, and Ubuntu on a second machine. I use 
+I built this program because I personally run Windows 10 as my main OS, and Ubuntu on a second machine. I use 
 [VcXsrv](https://sourceforge.net/projects/vcxsrv/) on Windows as a display for my X applications. When I undock
 my laptop, my connection shifts from ethernet to Wifi, I lose my X connections, and all my Ubuntu applications 
 close. With persist-proxy, instead of connecting directly to the VcXsrv, the apps connect to the proxy instead.
@@ -49,7 +49,6 @@ When a network break occurs, the applications don't know about it. Persist-proxy
 
 ![Unhappy Proxy](http://i.imgur.com/gG7Qshi.png)
 
-Persist-proxy will continue to attempt to reconnect. When it succeeds, all data is flushed, and the applications
-just think it was lag.
+Persist-proxy will attempt to reconnect. When it succeeds, all data is flushed, and the applications just think it was lag.
 
 ![Recovered Proxy](http://i.imgur.com/gNoS2uh.png)
