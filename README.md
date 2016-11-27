@@ -13,21 +13,13 @@ npm install -g persist-proxy
 ### On client machine
 
 ```
-persist-proxy client \
-  --listen-host 127.0.0.1 \
-  --listen-port 30001 \
-  --connect-host 123.45.6.78 \
-  --connect-port 30002
+persist-proxy --client 127.0.0.1:30001:123.45.6.78:30002
 ```
 
 ### On server machine
 
 ```
-persist-proxy server \
-  --listen-host 123.45.6.78 \
-  --listen-port 30002 \
-  --connect-host 127.0.0.1 \
-  --connect-port 30001
+persist-proxy --server 123.45.6.78:30002:127.0.0.1:30001
 ```
 
 ## Why persist-proxy?
