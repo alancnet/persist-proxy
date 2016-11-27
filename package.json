@@ -1,7 +1,7 @@
 {
   "name": "persist-proxy",
-  "version": "1.0.0",
-  "description": "",
+  "version": "0.0.1",
+  "description": "A two-part port-forwarder that can persist a connection through a network change or outage.",
   "main": "src/index.js",
   "bin": {
     "persist-proxy": "bin/persist-proxy"
@@ -9,7 +9,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "Alan Colon",
   "license": "ISC",
   "dependencies": {
     "alco": "0.0.3",
