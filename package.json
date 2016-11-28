@@ -1,6 +1,6 @@
 {
   "name": "persist-proxy",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "A two-part port-forwarder that can persist a connection through a network change or outage.",
   "main": "src/index.js",
   "bin": {
