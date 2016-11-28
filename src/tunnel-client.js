@@ -18,8 +18,6 @@ const tunnelClient = (config) => (userClientSocket) => {
   var lastPacketReceived = 0;
 
   userClientSocket.setNoDelay();
-  userClientSocket.setKeepAlive(true, 1000);
-  userClientSocket.setTimeout(5000);
 
   console.log(`${name}: Client connected`);
   const _send = (packet) => {
@@ -80,14 +78,6 @@ const tunnelClient = (config) => (userClientSocket) => {
     })
   })
 
-  userClientSocket.on('timeout', () => {
-    console.log(`${name}: User client timeout`);
-    send((writer) => {
-      terminated = true;
-      writer.writeUInt8(consts.END);
-    })
-  })
-
   userClientSocket.on('error', (err) => {
     console.info(`Error on user client socket: ${err}`)
     send((writer) => {
@@ -111,7 +101,7 @@ const tunnelClient = (config) => (userClientSocket) => {
       return true;
     } else {
       if (tunnelServer) {
-        console.warn(`Packet received out of order. Waiting for replay: ${lastPacketReceived} -> ${sequence}`)
+        console.warn(`${name}: Packet received out of order. Waiting for replay: ${lastPacketReceived} -> ${sequence}`)
         listenToTunnelServer();
         return false;
       }
@@ -138,6 +128,14 @@ const tunnelClient = (config) => (userClientSocket) => {
 
   }
 
+  const onPing = () => {
+    send((writer) => {
+      writer.writeUInt8(consts.PONG);
+    });
+  };
+
+  const onPong = () => {};
+
   const listenToTunnelServer = () => {
     if (tunnelServer) {
       tunnelServer.reader.readDoubleLE((sequence) => {
@@ -147,17 +145,18 @@ const tunnelClient = (config) => (userClientSocket) => {
           replayCache(lastReceived);
           listenToTunnelServer();
         } else {
-          tunnelServer.reader.readUInt8((command) => {
+          if (tunnelServer) tunnelServer.reader.readUInt8((command) => {
+            if (tunnelServer) tunnelServer.lastPong = new Date().getTime();
             switch (command) {
               case consts.SEND_PACKET:
-                tunnelServer.reader.readBuffer((buffer) => {
+                if (tunnelServer) tunnelServer.reader.readBuffer((buffer) => {
                   if (checkSequence(sequence)) {
                     onSendPacket(buffer);
                   }
                 })
                 break;
               case consts.ACK:
-                tunnelServer.reader.readDoubleLE((ackSequence) => {
+                if (tunnelServer) tunnelServer.reader.readDoubleLE((ackSequence) => {
                   if (checkSequence(sequence)) {
                     onAck(ackSequence);
                   }
@@ -167,6 +166,15 @@ const tunnelClient = (config) => (userClientSocket) => {
                 if (checkSequence(sequence)) {
                   onEnd();
                 }
+              case consts.PING:
+                if (checkSequence(sequence)) {
+                    onPing();
+                }
+                break;
+              case consts.PONG:
+                if (checkSequence(sequence)) {
+                    onPong();
+                }
                 break;
             }
           });
@@ -175,54 +183,89 @@ const tunnelClient = (config) => (userClientSocket) => {
     }
   }
 
+  var failCount = 0;
   const connectToTunnelServer = () => {
     tunnelServer = null;
-    const hostPort = `tcp://${config.connect[0].host}:${config.connect[0].port}`;
-    console.log(`${name}: Connecting to tunnelServer: ${hostPort}`);
-    const tunnelServerSocket = net.connect(config.connect[0], () => {
-      console.log(`${name}: Connected to tunnelServer: ${hostPort}`);
-      tunnelServerSocket.setNoDelay();
-      tunnelServerSocket.setKeepAlive(true, 5000);
-      tunnelServerSocket.setTimeout(5000);
+    failCount = 0;
+    config.connect.forEach((connect) => {
+      const hostPort = `tcp://${config.connect[0].host}:${config.connect[0].port}`;
+      console.log(`${name}: Connecting to tunnelServer: ${hostPort}`);
+      const tunnelServerSocket = net.connect(config.connect[0], () => {
+        if (tunnelServer != null) {
+          console.log(`${name}: Connected to tunnelServer, but another tunnelServer already succeeded. Disconnecting.`);
+          tunnelServerSocket.end();
+        } else {
+          console.log(`${name}: Connected to tunnelServer: ${hostPort}`);
+          tunnelServerSocket.setNoDelay();
 
-      tunnelServer = {
-        socket: tunnelServerSocket,
-        writer: new serialStream.SerialStreamWriter(tunnelServerSocket),
-        reader: new serialStream.SerialStreamReader(tunnelServerSocket)
-      };
-      tunnelServer.writer.writeString(consts.HELLO);
-      tunnelServer.writer.writeString(id);
-      tunnelServer.reader.readString((hello) => {
-        if (hello != consts.HELLO) console.error(`Invalid tunnelServer hello: ${hello}`);
-        else listenToTunnelServer();
+          tunnelServer = {
+            socket: tunnelServerSocket,
+            writer: new serialStream.SerialStreamWriter(tunnelServerSocket),
+            reader: new serialStream.SerialStreamReader(tunnelServerSocket),
+            lastPong: new Date().getTime()
+          };
+          tunnelServer.writer.writeString(consts.HELLO);
+          tunnelServer.writer.writeString(id);
+          tunnelServer.reader.readString((hello) => {
+            if (hello != consts.HELLO) console.error(`Invalid tunnelServer hello: ${hello}`);
+            else listenToTunnelServer();
+          });
+          console.log(`${name}: Sending replay signal: ${lastPacketReceived}`);
+          tunnelServer.writer.writeDoubleLE(-lastPacketReceived);
+          const pingTimer = tunnelServer.pingTimer = setInterval(() => {
+            if (!tunnelServer || tunnelServer.pingTimer !== pingTimer) {
+              clearInterval(pingTimer);
+            } else {
+              if (tunnelServer && tunnelServer.lastPong < new Date().getTime() - 5000) {
+                if (!terminated) console.log(`${name}: Ping timeout on tunnelServer: ${hostPort}`);
+                tunnelServer = null;
+                if (!terminated) {
+                  setTimeout(connectToTunnelServer, 1000);
+                }
+              } else {
+                send((writer) => {
+                  writer.writeUInt8(consts.PING);
+                });
+              }
+            }
+          }, 1000)
+          tunnelServerSocket.on('error', (err) => {
+            console.log(`${name}: Error communicating with tunnelServer: ${err}`);
+            tunnelServer = null;
+            if (!terminated) {
+              setTimeout(connectToTunnelServer, 1000);
+            }
+          });
+
+          tunnelServerSocket.on('end', () => {
+            console.log(`${name}: Disconnected from tunnelServer: ${hostPort}`);
+            tunnelServer = null;
+            if (!terminated) {
+              setTimeout(connectToTunnelServer, 1000);
+            }
+          });
+        }
       });
-      console.log(`${name}: Sending replay signal: ${lastPacketReceived}`);
-      tunnelServer.writer.writeDoubleLE(-lastPacketReceived);
-    });
 
-    tunnelServerSocket.on('error', (err) => {
-      console.log(`${name}: Error communicating with tunnelServer: ${err}`);
-      tunnelServer = null;
-      if (!terminated) {
-        setTimeout(connectToTunnelServer, 1000);
-      }
-    });
+      tunnelServerSocket.on('error', (err) => {
+        if (tunnelServer) {
+          if (tunnelServer.socket === tunnelServerSocket) {
+            // Ignore, error handler for active connection specified above.
+          } else {
+            console.log(`${name}: Connection failed to ${hostPort}, but we're already connected on another destination.`);
+          }
+        } else if (!terminated) {
+          console.log(`${name}: Connection failed to ${hostPort}.`);
+          failCount++;
+          if (failCount === config.connect.length) {
+            if (config.connect.length > 1) console.log(`${name}: All destinations have failed. Attempting all again.`);
+            setTimeout(connectToTunnelServer, 1000);
+          }
+        }
+      })
 
-    tunnelServerSocket.on('end', () => {
-      console.log(`${name}: Disconnected from tunnelServer: ${hostPort}`);
-      tunnelServer = null;
-      if (!terminated) {
-        setTimeout(connectToTunnelServer, 1000);
-      }
-    });
 
-    tunnelServerSocket.on('timeout', () => {
-      console.log(`${name}: Timeout on tunnelServer: ${hostPort}`);
-      tunnelServer = null;
-      if (!terminated) {
-        setTimeout(connectToTunnelServer, 1000);
-      }
-    });
+    })
   };
   connectToTunnelServer();
 }

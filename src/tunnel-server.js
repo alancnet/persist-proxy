@@ -96,9 +96,6 @@ const session = (ident, tunnelClient, config) => {
   }
 
   const begin = () => {
-    tunnelClient.socket.setKeepAlive(true, 1000);
-    tunnelClient.socket.setTimeout(5000);
-
     tunnelClient.socket.on('error', (err) => {
       if (!terminated) console.info(`${name}: Tunnel client error on active session: ${err}`)
       tunnelClient = null;
@@ -107,12 +104,22 @@ const session = (ident, tunnelClient, config) => {
       if (!terminated) console.info(`${name}: Tunnel client disconnected on active session`);
       tunnelClient = null;
     });
-    tunnelClient.socket.on('timeout', () => {
-      if (!terminated) console.info(`${name}: Tunnel client timeout on active session`);
-      tunnelClient = null;
-    });
     tunnelClient.writer.writeDoubleLE(-lastPacketReceived);
     listenToTunnelClient();
+    const pingTimer = tunnelClient.pingTimer = setInterval(() => {
+      if (!tunnelClient || tunnelClient.pingTimer !== pingTimer) {
+        clearInterval(pingTimer);
+      } else {
+        if (tunnelClient && tunnelClient.lastPong < new Date().getTime() - 5000) {
+          if (!terminated) console.log(`${name}: Ping timeout on tunnelClient`);
+          tunnelClient = null;
+        } else {
+          send((writer) => {
+            writer.writeUInt8(consts.PING);
+          });
+        }
+      }
+    }, 1000)
   }
 
 
@@ -156,6 +163,14 @@ const session = (ident, tunnelClient, config) => {
     delete system.sessions[ident];
   }
 
+  const onPing = () => {
+    send((writer) => {
+      writer.writeUInt8(consts.PONG);
+    });
+  };
+
+  const onPong = () => {};
+
   const listenToTunnelClient = () => {
     if (tunnelClient) {
       tunnelClient.reader.readDoubleLE((sequence) => {
@@ -165,17 +180,18 @@ const session = (ident, tunnelClient, config) => {
           replayCache(lastReceived);
           listenToTunnelClient();
         } else {
-          tunnelClient.reader.readUInt8((command) => {
+          if (tunnelClient) tunnelClient.reader.readUInt8((command) => {
+            if (tunnelClient) tunnelClient.lastPong = new Date().getTime();
             switch (command) {
               case consts.SEND_PACKET:
-                tunnelClient.reader.readBuffer((buffer) => {
+                if (tunnelClient) tunnelClient.reader.readBuffer((buffer) => {
                   if (checkSequence(sequence)) {
                     onSendPacket(buffer);
                   }
                 })
                 break;
               case consts.ACK:
-                tunnelClient.reader.readDoubleLE((ackSequence) => {
+                if (tunnelClient) tunnelClient.reader.readDoubleLE((ackSequence) => {
                   if (checkSequence(sequence)) {
                     onAck(ackSequence)
                   }
@@ -184,6 +200,16 @@ const session = (ident, tunnelClient, config) => {
               case consts.END:
                 if (checkSequence(sequence)) {
                   onEnd();
+                }
+                break;
+              case consts.PING:
+                if (checkSequence(sequence)) {
+                    onPing();
+                }
+                break;
+              case consts.PONG:
+                if (checkSequence(sequence)) {
+                    onPong();
                 }
                 break;
             }
@@ -203,8 +229,6 @@ const session = (ident, tunnelClient, config) => {
       // success
       userServerSocket = newSocket;
       userServerSocket.setNoDelay();
-      userServerSocket.setKeepAlive(true, 1000);
-      userServerSocket.setTimeout(5000);
       userServerSocket.on('data', (buffer) => {
         const savedBuffer = Buffer.from(buffer);
         send((writer) => {
@@ -214,12 +238,6 @@ const session = (ident, tunnelClient, config) => {
       })
       userServerSocket.on('end', () => {
         console.log(`${name}: User server disconnected`);
-        send((writer) => {
-          writer.writeUInt8(consts.END);
-        }, true);
-      })
-      userServerSocket.on('timeout', () => {
-        console.log(`${name}: User server timeout`);
         send((writer) => {
           writer.writeUInt8(consts.END);
         }, true);
