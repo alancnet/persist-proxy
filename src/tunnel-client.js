@@ -188,9 +188,9 @@ const tunnelClient = (config) => (userClientSocket) => {
     tunnelServer = null;
     failCount = 0;
     config.connect.forEach((connect) => {
-      const hostPort = `tcp://${config.connect[0].host}:${config.connect[0].port}`;
+      const hostPort = `tcp://${connect.host}:${connect.port}`;
       console.log(`${name}: Connecting to tunnelServer: ${hostPort}`);
-      const tunnelServerSocket = net.connect(config.connect[0], () => {
+      const tunnelServerSocket = net.connect(connect, () => {
         if (tunnelServer != null) {
           console.log(`${name}: Connected to tunnelServer, but another tunnelServer already succeeded. Disconnecting.`);
           tunnelServerSocket.end();
