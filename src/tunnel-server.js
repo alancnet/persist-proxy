@@ -14,6 +14,7 @@ const tunnelServer = (config) => (tunnelClientSocket) => {
   const name = "--------"
   console.log(`${name}: Client connected...`)
   tunnelClientSocket.setNoDelay();
+  tunnelClientSocket.setKeepAlive(true, 5000);
   const tunnelClient = {
     socket: tunnelClientSocket,
     reader: new serialStream.SerialStreamReader(tunnelClientSocket),
@@ -196,6 +197,7 @@ const session = (ident, tunnelClient, config) => {
       // success
       userServerSocket = newSocket;
       userServerSocket.setNoDelay();
+      userServerSocket.setKeepAlive(true, 5000);
       userServerSocket.on('data', (buffer) => {
         const savedBuffer = Buffer.from(buffer);
         send((writer) => {

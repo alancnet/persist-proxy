@@ -53,6 +53,7 @@ const forward = (config) => (userClientSocket) => {
   });
 
   userClientSocket.setNoDelay();
+  userClientSocket.setKeepAlive(true, 5000);
 
   config.connect.forEach((connect) => {
     const hostPort = `tcp://${connect.host}:${connect.port}`;
@@ -87,6 +88,7 @@ const forward = (config) => (userClientSocket) => {
         });
 
         userServerSocket.setNoDelay();
+        userServerSocket.setKeepAlive(true, 5000);
         flushQueue();
       }
     });
