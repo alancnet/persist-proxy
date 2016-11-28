@@ -25,6 +25,7 @@ const args = require('yargs-parser')(process.argv.slice(2));
 
 const tunnelClient = require('../src/tunnel-client');
 const tunnelServer = require('../src/tunnel-server');
+const forward = require('../src/forward');
 
 const toArray = (v) => v === undefined ? [] : v instanceof Array ? v : [v];
 const parseAddress = (addr) => {
@@ -60,6 +61,13 @@ toArray(args.server)
     .forEach(tunnelServer(config))
   })
 
+toArray(args.forward)
+  .map(parseAddress)
+  .forEach((config) => {
+    bind(config.listen)
+    .forEach(forward(config))
+  })
+
 switch (args._[0]) {
   case "client":
     bind(args)
@@ -82,8 +90,9 @@ if (args.help) {
 Usage: persist-proxy [options]
 
 Options:
-  --client [listen-host:]listen-port:host:port[:host:port...]
+  --client [listen-host:]listen-port:host:port
   --server [listen-host:]listen-port:service-host:service-port
+  --forward [listen-host:]listen-port:host:port[:host:port...]
 
     listen-host  - A local address to bind to for incoming connections.
     listen-port  - A local port for listen-host.
