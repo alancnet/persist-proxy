@@ -68,7 +68,7 @@ const forward = (config) => (userClientSocket) => {
         userServerSocket.on('end', () => {
           if (!terminated) {
             terminated = true;
-            console.log(`${name}: User server disconnected. Disconnecting user client.`).
+            console.log(`${name}: User server disconnected. Disconnecting user client.`);
             userClientSocket.end();
           }
         });
