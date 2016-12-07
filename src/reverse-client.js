@@ -106,9 +106,10 @@ const reverseClient = (config) => {
     }
 
     const onClientConnect = (pipeId, id, address, port) => {
-      console.log(`${name}: Client ${id} connected on pipe ${pipeId}: tcp://${address}:${port} -> tcp://${pipes[pipeId].host}:${pipes[pipeId].port}`);
-      userServer = {
+      console.log(`${name}: Client ${id.substr(0, 8)} connected on pipe ${pipeId}: tcp://${address}:${port} -> tcp://${pipes[pipeId].host}:${pipes[pipeId].port}`);
+      const userServer = {
         id: id,
+        name: id.substr(0, 8),
         socket: null,
         terminated: false,
         queue: []
