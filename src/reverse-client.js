@@ -119,6 +119,7 @@ const reverseClient = (config) => {
           userServerSocket.end();
         }
         userServer.socket = userServerSocket;
+        userServer.socket.setNoDelay();
         userServer.socket.on('error', (err) => {
           console.error(`${name}: User server error: ${err}`);
           tunnelServer.socket.cork();

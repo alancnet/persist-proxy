@@ -16,6 +16,7 @@ const reverseServer = (config) => (tunnelClientSocket) => {
   const userClients = {};
   const pipes = {};
   const readCommand = () => {
+    tunnelClient.socket.setNoDelay();
     tunnelClient.reader.readUInt8((command) => {
       switch (command) {
         case consts.LISTEN:
