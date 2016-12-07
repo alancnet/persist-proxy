@@ -5,5 +5,9 @@ module.exports = {
   END: 3,
   ACK: 4,
   PING: 5,
-  PONG: 6
+  PONG: 6,
+
+  // Reverse port forwarding
+  LISTEN: 11,
+  CLIENT_CONNECT: 12
 };
