@@ -52,7 +52,18 @@ const forward = (config) => (userClientSocket) => {
     }
   });
 
+  userClientSocket.on('timeout', () => {
+    if (!terminated) {
+      terminated = true;
+      console.log(`${name}: Timeout on userClient`);
+      userClientSocket.end();
+      userServerSocket.end();
+    }
+  });
+
   userClientSocket.setNoDelay();
+  userClientSocket.setKeepAlive(true, 1000);
+  userClientSocket.setTimeout(5000);
 
   config.connect.forEach((connect) => {
     const hostPort = `tcp://${connect.host}:${connect.port}`;
@@ -68,7 +79,7 @@ const forward = (config) => (userClientSocket) => {
         userServerSocket.on('end', () => {
           if (!terminated) {
             terminated = true;
-            console.log(`${name}: User server disconnected. Disconnecting user client.`).
+            console.log(`${name}: User server disconnected. Disconnecting user client.`);
             userClientSocket.end();
           }
         });
@@ -86,7 +97,19 @@ const forward = (config) => (userClientSocket) => {
           }
         });
 
+        userServerSocket.on('timeout', () => {
+          if (!terminated) {
+            terminated = true;
+            console.log(`${name}: Timeout on userServer`);
+            userClientSocket.end();
+            userServerSocket.end();
+          }
+        });
+
+
         userServerSocket.setNoDelay();
+        userServerSocket.setKeepAlive(true, 1000);
+        userServerSocket.setTimeout(5000);
         flushQueue();
       }
     });

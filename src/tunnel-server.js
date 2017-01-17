@@ -73,6 +73,10 @@ const session = (ident, tunnelClient, config) => {
       while (userServerQueue.length) {
         userServerSocket.write(userServerQueue.shift());
       }
+      if (terminated) {
+        userServerSocket.end()
+        userServerSocket = null;
+      }
     }
   }
   const replayCache = (lastReceived) => {
@@ -106,6 +110,20 @@ const session = (ident, tunnelClient, config) => {
     });
     tunnelClient.writer.writeDoubleLE(-lastPacketReceived);
     listenToTunnelClient();
+    const pingTimer = tunnelClient.pingTimer = setInterval(() => {
+      if (!tunnelClient || tunnelClient.pingTimer !== pingTimer) {
+        clearInterval(pingTimer);
+      } else {
+        if (tunnelClient && tunnelClient.lastPong < new Date().getTime() - 5000) {
+          if (!terminated) console.log(`${name}: Ping timeout on tunnelClient`);
+          tunnelClient = null;
+        } else {
+          send((writer) => {
+            writer.writeUInt8(consts.PING);
+          });
+        }
+      }
+    }, 1000)
   }
 
 
@@ -144,10 +162,18 @@ const session = (ident, tunnelClient, config) => {
   const onEnd = () => {
     console.log(`${name}: Received END command. Tearing down.`);
     terminated = true;
-    userServerSocket.end();
-    tunnelClient.socket.end();
+    if (userServerSocket) userServerSocket.end();
+    if (tunnelClient) tunnelClient.socket.end();
     delete system.sessions[ident];
   }
+
+  const onPing = () => {
+    send((writer) => {
+      writer.writeUInt8(consts.PONG);
+    });
+  };
+
+  const onPong = () => {};
 
   const listenToTunnelClient = () => {
     if (tunnelClient) {
@@ -158,17 +184,18 @@ const session = (ident, tunnelClient, config) => {
           replayCache(lastReceived);
           listenToTunnelClient();
         } else {
-          tunnelClient.reader.readUInt8((command) => {
+          if (tunnelClient) tunnelClient.reader.readUInt8((command) => {
+            if (tunnelClient) tunnelClient.lastPong = new Date().getTime();
             switch (command) {
               case consts.SEND_PACKET:
-                tunnelClient.reader.readBuffer((buffer) => {
+                if (tunnelClient) tunnelClient.reader.readBuffer((buffer) => {
                   if (checkSequence(sequence)) {
                     onSendPacket(buffer);
                   }
                 })
                 break;
               case consts.ACK:
-                tunnelClient.reader.readDoubleLE((ackSequence) => {
+                if (tunnelClient) tunnelClient.reader.readDoubleLE((ackSequence) => {
                   if (checkSequence(sequence)) {
                     onAck(ackSequence)
                   }
@@ -177,6 +204,16 @@ const session = (ident, tunnelClient, config) => {
               case consts.END:
                 if (checkSequence(sequence)) {
                   onEnd();
+                }
+                break;
+              case consts.PING:
+                if (checkSequence(sequence)) {
+                    onPing();
+                }
+                break;
+              case consts.PONG:
+                if (checkSequence(sequence)) {
+                    onPong();
                 }
                 break;
             }
