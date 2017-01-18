@@ -94,6 +94,7 @@ const session = (ident, tunnelClient, config) => {
         });
       }
     } else {
+      isNew = false;
       debug.log(`${name}: Replaying from ${lastReceived}`);
       cache.forEach((packet) => {
         if (packet.sequence > lastReceived) {
