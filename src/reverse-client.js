@@ -1,8 +1,8 @@
 const transports = require('./transports');
 const uuid = require('uuid');
-const bind = require('./bind');
 const serialStream = require('serial-stream');
 const consts = require('./consts');
+const debug = require('./debug');
 
 const reverseClient = (config) => {
   const userServerConfig = config.listen;
@@ -10,7 +10,7 @@ const reverseClient = (config) => {
   const pipeConfigs = config.connect.slice(1);
 
   if (config.connect.length < 2) {
-    console.error("Reverse client requires <user-server>:<reverse-server>:<pipe>");
+    debug.error("Reverse client requires <user-server>:<reverse-server>:<pipe>");
     process.exit(2);
   }
 
@@ -30,23 +30,23 @@ const reverseClient = (config) => {
     tunnelServer.socket.setNoDelay();
 
     tunnelServer.socket.on('error', (err) => {
-      console.log(`${name}: Error on tunnel server socket: ${err}`);
+      debug.log(`${name}: Error on tunnel server socket: ${err}`);
       process.exit(1);
     });
 
     tunnelServer.socket.on('end', () => {
-      console.log(`${name}: Connection to tunnel server ended.`);
+      debug.log(`${name}: Connection to tunnel server ended.`);
       process.exit(1);
     });
 
     pipeConfigs.forEach((pipe) => {
-      console.log(`${name}: Sending pipe endpoint ${pipe.host}:${pipe.port}`)
+      debug.log(`${name}: Sending pipe endpoint ${pipe.host}:${pipe.port}`)
       pipe.id = uuid();
       tunnelServer.socket.cork();
       tunnelServer.writer.writeUInt8(consts.LISTEN);
       tunnelServer.writer.writeString(pipe.id);
       tunnelServer.writer.writeString(pipe.host);
-      tunnelServer.writer.writeUInt16LE(pipe.port);
+      tunnelServer.writer.writeString(pipe.port.toString());
       tunnelServer.socket.uncork();
       pipes[pipe.id] = pipe;
     })
@@ -58,7 +58,7 @@ const reverseClient = (config) => {
             tunnelServer.reader.readString((pipeId) =>
               tunnelServer.reader.readString((id) =>
                 tunnelServer.reader.readString((address) =>
-                  tunnelServer.reader.readUInt16LE((port) => {
+                  tunnelServer.reader.readString((port) => {
                     onClientConnect(pipeId, id, address, port);
                     readCommand();
                   })
@@ -107,7 +107,7 @@ const reverseClient = (config) => {
     }
 
     const onClientConnect = (pipeId, id, address, port) => {
-      console.log(`${name}: Client ${id.substr(0, 8)} connected on pipe ${pipeId}: tcp://${address}:${port} -> tcp://${pipes[pipeId].host}:${pipes[pipeId].port}`);
+      debug.log(`${name}: Client ${id.substr(0, 8)} connected on pipe ${pipeId}: tcp://${address}:${port} -> tcp://${pipes[pipeId].host}:${pipes[pipeId].port}`);
       const userServer = {
         id: id,
         name: id.substr(0, 8),
@@ -124,14 +124,14 @@ const reverseClient = (config) => {
         userServer.socket = userServerSocket;
         userServer.socket.setNoDelay();
         userServer.socket.on('error', (err) => {
-          console.error(`${name}: User server error: ${err}`);
+          debug.error(`${name}: User server error: ${err}`);
           tunnelServer.socket.cork();
           tunnelServer.writer.writeUInt8(consts.END);
           tunnelServer.writer.writeString(userServer.id);
           tunnelServer.socket.uncork();
         });
         userServer.socket.on('end', () => {
-          console.error(`${name}: User server disconnected`);
+          debug.error(`${name}: User server disconnected`);
           tunnelServer.socket.cork();
           tunnelServer.writer.writeUInt8(consts.END);
           tunnelServer.writer.writeString(userServer.id);
@@ -152,7 +152,7 @@ const reverseClient = (config) => {
       });
       userServerSocket.on('error', (err) => {
         if (!userServer.socket) {
-          console.error(`${name}: Error connecting to user server: ${err}`);
+          debug.error(`${name}: Error connecting to user server: ${err}`);
           tunnelServer.socket.cork();
           tunnelServer.writer.writeUInt8(consts.END);
           tunnelServer.writer.writeString(userServer.id);
@@ -165,7 +165,7 @@ const reverseClient = (config) => {
 
   tunnelServerSocket.on('error', (err) => {
     if (!tunnelServer) {
-      console.log(`${name}: Error connecting to server: ${err}`);
+      debug.log(`${name}: Error connecting to server: ${err}`);
       process.exit(1);
     }
   })

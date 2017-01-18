@@ -3,6 +3,9 @@ const expect = require('chai').expect;
 const vn = require('../src/virtual-net');
 const tunnelClient = require('../src/tunnel-client');
 const tunnelServer = require('../src/tunnel-server');
+const debug = require('../src/debug');
+
+debug.provider = null; // Disable logging
 
 describe('persist-proxy', () => {
   var output;
@@ -41,6 +44,7 @@ describe('persist-proxy', () => {
       output.push('connected')
     });
     socket.on('data', (data) => output.push(data));
+    socket.on('error', (err) => output.push(err));
     socket.on('end', () => output.push('end'));
     return {
       output: output,
@@ -56,14 +60,13 @@ describe('persist-proxy', () => {
     }
   }
 
-  xdescribe('tunnel', () => {
+  describe('test tools', () => {
     it('will be tested with a simple uppercase echo server.', (done) => {
       const c = client('proc', 1);
       steps([
-        () => {
-          c.write('hello');
-          c.end();
-        },
+        () => c.write('hello'),
+        () => 1000,
+        () => c.end(),
         () => {
           expect(c.output.join(';')).to.equal('connected;HELLO');
           expect(output.join(';')).to.equal('0 connected;0 hello;0 end');
@@ -71,6 +74,25 @@ describe('persist-proxy', () => {
         }
       ])
     });
+    it('should accept named ports for proc.', (done) => {
+      var c;
+      steps([
+        () => main("--forward proc:named:proc:1"),
+        () => c = client('proc', 'named'),
+        () => c.write('hello'),
+        () => 1000,
+        () => c.end(),
+        () => {
+          expect(c.output.join(';')).to.equal('connected;HELLO');
+          expect(output.join(';')).to.equal('0 connected;0 hello;0 end');
+          done();
+        }
+      ])
+    });
+
+  })
+
+  describe('tunnel', () => {
 
     it('should forward from the client to the server.', (done) => {
       var c;
@@ -88,7 +110,7 @@ describe('persist-proxy', () => {
       ])
 
     })
-    xit('should attempt to reconnect the client to the server after a timeout.', function(done) {
+    it('should attempt to reconnect the client to the server after a timeout.', function(done) {
       this.timeout(20000);
       var c, session;
       steps([
@@ -99,7 +121,7 @@ describe('persist-proxy', () => {
           sessions[1].pause()
         },
         () => c.write('hello'),
-        () => 10000,
+        () => 8000,
         () => c.end(),
         () => {
           expect(c.output.join(';')).to.equal('connected;HELLO');
@@ -142,6 +164,28 @@ describe('persist-proxy', () => {
         }
       ])
     })
+
+    it('should end the client connection if the server restarts.', function(done) {
+      this.timeout(10000);
+      var c;
+      steps([
+        () => main('--server proc:server:proc:1'),
+        () => main('--client proc:client:proc:server'),
+        () => c = client('proc', 'client'),
+        () => c.write('Hello'),
+        () => 1000,
+        () => {
+          vn._servers['proc:server'].close();
+          tunnelServer._system.sessions = {};
+        },
+        () => main('--server proc:server:proc:1'),
+        () => sessions[1].pause(),
+        () => 7000,
+        () => expect(c.output.join(';')).to.equal('connected;HELLO;end'),
+        () => done()
+
+      ])
+    })
   });
 
   describe('reverse', () => {
@@ -179,6 +223,31 @@ describe('persist-proxy', () => {
         }
       ])
     })
+  })
+  describe("persist-proxy cli", function() {
+    it('should be chainable', function (done) {
+      this.timeout(10000);
+      var c;
+      steps([
+        () => main("--reverse-server proc:reverse-server"),
+        () => main("--server proc:server:proc:reverse-server"),
+        () => main("--client proc:client:proc:server"),
+        () => main("--reverse-client proc:1:proc:reverse-server:proc:reverse-tunnel"),
+        () => 100,
+        () => main("--forward proc:fwd:proc:reverse-tunnel"),
+        () => c = client("proc", "fwd"),
+        () => c.write('hello'),
+        () => 1000,
+        () => c.end(),
+        () => {
+          expect(c.output.join(';')).to.equal('connected;HELLO');
+          expect(output.join(';')).to.equal('0 connected;0 hello;0 end');
+          done();
+        }
+      ])
+    })
+
+
 
   })
 })

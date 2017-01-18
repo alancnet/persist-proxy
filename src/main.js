@@ -20,12 +20,14 @@
 
 const bind = require('../src/bind');
 function main(argv) {
+  const debug = require('./debug');
   const args = require('yargs-parser')(argv);
   const tunnelClient = require('./tunnel-client');
   const tunnelServer = require('./tunnel-server');
   const reverseClient = require('./reverse-client');
   const reverseServer = require('./reverse-server');
   const forward = require('./forward');
+  const transports = require('./transports');
 
   const toArray = (v) => v === undefined ? [] : v instanceof Array ? v : [v];
   const parseAddress = (addr) => {
@@ -34,7 +36,7 @@ function main(argv) {
     const ret = {
       listen: {
         host: words[0],
-        port: parseInt(words[1])
+        port: parseInt(words[1]) || words[1]
       },
       connect: []
     };
@@ -52,6 +54,7 @@ function main(argv) {
     .forEach((config) => {
       bind(config.listen)
       .forEach(tunnelClient(config))
+      debug.log(`Tunnel client listening on ${transports.getTransport(config.listen.host, config.listen.port)}`);
     })
 
   toArray(args.server)
@@ -59,6 +62,7 @@ function main(argv) {
     .forEach((config) => {
       bind(config.listen)
       .forEach(tunnelServer(config))
+      debug.log(`Tunnel server listening on ${transports.getTransport(config.listen.host, config.listen.port)}`);
     })
 
   toArray(args.forward)
@@ -66,6 +70,7 @@ function main(argv) {
     .forEach((config) => {
       bind(config.listen)
       .forEach(forward(config))
+      debug.log(`Port forwarder listening on ${transports.getTransport(config.listen.host, config.listen.port)}`);
     })
 
   toArray(args['reverse-server'])
@@ -73,6 +78,7 @@ function main(argv) {
     .forEach((config) => {
       bind(config.listen)
       .forEach(reverseServer(config))
+      debug.log(`Reverse server listening on ${transports.getTransport(config.listen.host, config.listen.port)}`);
     })
 
   toArray(args['reverse-client'])
@@ -99,7 +105,7 @@ function main(argv) {
   }
 
   if (args.help) {
-    console.log(`
+    debug.log(`
   Usage: persist-proxy [options]
 
   Options:
