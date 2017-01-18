@@ -1,4 +1,4 @@
-const net = require('net');
+const transports = require('./transports');
 const uuid = require('uuid');
 const bind = require('./bind');
 const serialStream = require('serial-stream');
@@ -19,7 +19,8 @@ const reverseClient = (config) => {
   var tunnelServer;
   const userServers = {};
   const pipes = {}
-  const tunnelServerSocket = net.connect(tunnelServerConfig, () => {
+  const transport = transports.getTransport(tunnelServerConfig.host, tunnelServerConfig.port);
+  const tunnelServerSocket = transport.provider.connect(tunnelServerConfig, () => {
     tunnelServer = {
       socket: tunnelServerSocket,
       writer: new serialStream.SerialStreamWriter(tunnelServerSocket),
@@ -115,7 +116,8 @@ const reverseClient = (config) => {
         queue: []
       };
       userServers[id] = userServer;
-      const userServerSocket = net.connect(userServerConfig, () => {
+      const transport = transports.getTransport(userServerConfig.host, userServerConfig.port);
+      const userServerSocket = transport.provider.connect(userServerConfig, () => {
         if (userServer.terminated) {
           userServerSocket.end();
         }

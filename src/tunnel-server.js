@@ -1,5 +1,5 @@
 const rx = require('rx');
-const net = require('net');
+const transports = require('./transports');
 const serialStream = require('serial-stream');
 const uuid = require('uuid');
 const consts = require('./consts')
@@ -226,9 +226,10 @@ const session = (ident, tunnelClient, config) => {
 
 
   const connectToUserServer = () => {
-    const hostPort = `tcp://${config.connect[0].host}:${config.connect[0].port}`;
+    const transport = transports.getTransport(config.connect[0].host, config.connect[0].port);
+    const hostPort = transport.description;
     console.log(`${name}: Connecting to user server: ${hostPort}`);
-    const newSocket = net.connect(config.connect[0], () => {
+    const newSocket = transport.provider.connect(config.connect[0], () => {
       console.log(`${name}: Connected to user server: ${hostPort}`);
       // success
       userServerSocket = newSocket;

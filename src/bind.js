@@ -1,13 +1,14 @@
 const rx = require('rx');
-const net = require('net');
+const transports = require('./transports');
 
 const bind = (config) => rx.Observable.create(observer => {
   const port = (config && config.port) || 5150;
   const host = (config && config.host) || '0.0.0.0';
+  const transport = transports.getTransport(host, port);
   const onServerListening = () => {
-    console.info(`Listening on tcp://${host}:${port}`);
+    console.info(`Listening on ${transport}`);
   };
-  const server = net.createServer((s) => observer.onNext(s));
+  const server = transport.provider.createServer((s) => observer.onNext(s));
   server.on('error', observer.onError.bind(observer));
   server.on('listening', onServerListening);
   server.listen(port, host);

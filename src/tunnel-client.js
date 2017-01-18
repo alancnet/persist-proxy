@@ -1,5 +1,5 @@
 const rx = require('rx');
-const net = require('net');
+const transports = require('./transports');
 const serialStream = require('serial-stream');
 const uuid = require('uuid');
 const consts = require('./consts')
@@ -36,7 +36,7 @@ const tunnelClient = (config) => (userClientSocket) => {
         _send(packet);
         if (packet.terminal) {
           terminated = true;
-          tunnelServer.socket.end();
+          if (tunnelServer) tunnelServer.socket.end();
         }
       }
     }
@@ -188,9 +188,10 @@ const tunnelClient = (config) => (userClientSocket) => {
     tunnelServer = null;
     failCount = 0;
     config.connect.forEach((connect) => {
-      const hostPort = `tcp://${connect.host}:${connect.port}`;
+      const transport = transports.getTransport(connect.host, connect.port);
+      const hostPort = transport.description;
       console.log(`${name}: Connecting to tunnelServer: ${hostPort}`);
-      const tunnelServerSocket = net.connect(connect, () => {
+      const tunnelServerSocket = transport.provider.connect(connect, () => {
         if (tunnelServer != null) {
           console.log(`${name}: Connected to tunnelServer, but another tunnelServer already succeeded. Disconnecting.`);
           tunnelServerSocket.end();

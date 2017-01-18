@@ -1,4 +1,4 @@
-const net = require('net');
+const transports = require('./transports');
 const serialStream = require('serial-stream');
 const uuid = require('uuid');
 const consts = require('./consts')
@@ -62,13 +62,14 @@ const forward = (config) => (userClientSocket) => {
   });
 
   userClientSocket.setNoDelay();
-  userClientSocket.setKeepAlive(true, 1000);
-  userClientSocket.setTimeout(5000);
+  //userClientSocket.setKeepAlive(true, 1000);
+  //userClientSocket.setTimeout(5000);
 
   config.connect.forEach((connect) => {
-    const hostPort = `tcp://${connect.host}:${connect.port}`;
+    const transport = transports.getTransport(connect.host, connect.port);
+    const hostPort = transport.description;
     console.log(`${name}: Connecting to destination: ${hostPort}`);
-    const mySocket = net.connect(connect, () => {
+    const mySocket = transport.provider.connect(connect, () => {
       if (userServerSocket) {
         console.log(`${name}: Connected to destination: ${hostPort}, but another destination already succeeded. Disconnecting.`);
         mySocket.end();
@@ -97,15 +98,15 @@ const forward = (config) => (userClientSocket) => {
           }
         });
 
-        userServerSocket.on('timeout', () => {
-          if (!terminated) {
-            terminated = true;
-            console.log(`${name}: Timeout on userServer`);
-            userClientSocket.end();
-            userServerSocket.end();
-          }
-        });
-
+        // userServerSocket.on('timeout', () => {
+        //   if (!terminated) {
+        //     terminated = true;
+        //     console.log(`${name}: Timeout on userServer`);
+        //     userClientSocket.end();
+        //     userServerSocket.end();
+        //   }
+        // });
+        //
 
         userServerSocket.setNoDelay();
         userServerSocket.setKeepAlive(true, 1000);

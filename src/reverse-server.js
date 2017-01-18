@@ -1,4 +1,4 @@
-const net = require('net');
+const transports = require('./transports');
 const uuid = require('uuid');
 const bind = require('./bind');
 const serialStream = require('serial-stream');
