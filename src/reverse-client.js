@@ -29,14 +29,27 @@ const reverseClient = (config) => {
 
     tunnelServer.socket.setNoDelay();
 
+    const tearDownAndRestart = () => {
+      Object.keys(userServers).forEach((id) => {
+        const userServer = userServers[id];
+        if (userServer.socket) {
+          debug.log(`${userServer.name}: Disconnecting bifurcated connection.`);
+          userServer.socket.end();
+        }
+      });
+      setTimeout(() => {
+        reverseClient(config);
+      }, 1000);
+    }
+
     tunnelServer.socket.on('error', (err) => {
       debug.log(`${name}: Error on tunnel server socket: ${err}`);
-      process.exit(1);
+      tearDownAndRestart();
     });
 
     tunnelServer.socket.on('end', () => {
       debug.log(`${name}: Connection to tunnel server ended.`);
-      process.exit(1);
+      tearDownAndRestart();
     });
 
     pipeConfigs.forEach((pipe) => {
@@ -166,7 +179,7 @@ const reverseClient = (config) => {
   tunnelServerSocket.on('error', (err) => {
     if (!tunnelServer) {
       debug.log(`${name}: Error connecting to server: ${err}`);
-      process.exit(1);
+      tearDownAndRestart();
     }
   })
 }
