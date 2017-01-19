@@ -206,50 +206,63 @@ const tunnelClient = (config) => (userClientSocket) => {
           debug.log(`${name}: Connected to tunnelServer: ${hostPort}`);
           tunnelServerSocket.setNoDelay();
 
-          tunnelServer = {
+          const newTunnelServer = {
             socket: tunnelServerSocket,
             writer: new serialStream.SerialStreamWriter(tunnelServerSocket),
             reader: new serialStream.SerialStreamReader(tunnelServerSocket),
             lastPong: new Date().getTime()
           };
-          tunnelServer.writer.writeString(consts.HELLO);
-          tunnelServer.writer.writeString(id);
-          tunnelServer.reader.readString((hello) => {
+          newTunnelServer.writer.writeString(consts.HELLO);
+          newTunnelServer.reader.readString((hello) => {
             if (hello != consts.HELLO) debug.error(`Invalid tunnelServer hello: ${hello}`);
-            else listenToTunnelServer();
-          });
-          debug.log(`${name}: Sending replay signal: ${lastPacketReceived}`);
-          tunnelServer.writer.writeDoubleLE(-lastPacketReceived);
-          const pingTimer = tunnelServer.pingTimer = setInterval(() => {
-            if (!tunnelServer || tunnelServer.pingTimer !== pingTimer) {
-              clearInterval(pingTimer);
-            } else {
-              if (tunnelServer && tunnelServer.lastPong < new Date().getTime() - 5000) {
-                if (!terminated) debug.log(`${name}: Ping timeout on tunnelServer: ${hostPort}`);
-                tunnelServer = null;
-                if (!terminated) {
-                  setTimeout(connectToTunnelServer, 1000);
-                }
+            else {
+              if (tunnelServer != null) {
+                debug.log(`${name}: Handshake to tunnelServer, but another tunnelServer already succeeded. Disconnecting.`);
+                tunnelServerSocket.end();
               } else {
-                send((writer) => {
-                  writer.writeUInt8(consts.PING);
-                });
+                newTunnelServer.writer.writeString(id);
+                debug.log(`${name}: Handshake to tunnelServer succeeded.`);
+                tunnelServer = newTunnelServer
+                listenToTunnelServer();
+                debug.log(`${name}: Sending replay signal: ${lastPacketReceived}`);
+                tunnelServer.writer.writeDoubleLE(-lastPacketReceived);
+                const pingTimer = tunnelServer.pingTimer = setInterval(() => {
+                  if (!tunnelServer || tunnelServer.pingTimer !== pingTimer) {
+                    clearInterval(pingTimer);
+                  } else {
+                    if (tunnelServer && tunnelServer.lastPong < new Date().getTime() - 5000) {
+                      if (!terminated) debug.log(`${name}: Ping timeout on tunnelServer: ${hostPort}`);
+                      tunnelServer = null;
+                      if (!terminated) {
+                        setTimeout(connectToTunnelServer, 1000);
+                      }
+                    } else {
+                      send((writer) => {
+                        writer.writeUInt8(consts.PING);
+                      });
+                    }
+                  }
+                }, 1000)
               }
             }
-          }, 1000)
+          });
           tunnelServerSocket.on('error', (err) => {
             debug.log(`${name}: Error communicating with tunnelServer: ${err}`);
-            tunnelServer = null;
-            if (!terminated) {
-              setTimeout(connectToTunnelServer, 1000);
+            if (tunnelServer == newTunnelServer) {
+              tunnelServer = null;
+              if (!terminated) {
+                setTimeout(connectToTunnelServer, 1000);
+              }
             }
           });
 
           tunnelServerSocket.on('end', () => {
             debug.log(`${name}: Disconnected from tunnelServer: ${hostPort}`);
-            tunnelServer = null;
-            if (!terminated) {
-              setTimeout(connectToTunnelServer, 1000);
+            if (tunnelServer == newTunnelServer) {
+              tunnelServer = null;
+              if (!terminated) {
+                setTimeout(connectToTunnelServer, 1000);
+              }
             }
           });
         }
