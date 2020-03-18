@@ -13,23 +13,31 @@ npm install -g persist-proxy
 ### On client machine
 
 ```
-persist-proxy --listen-host 127.0.0.1 --listen-port 30001 --connect-host 123.45.6.78 --connect-port 30002
+persist-proxy client \
+  --listen-host 127.0.0.1 \
+  --listen-port 30001 \
+  --connect-host 123.45.6.78 \
+  --connect-port 30002
 ```
 
 ### On server machine
 
 ```
-persist-proxy --listen-host 123.45.6.78 --listen-port 30002 --connect-host 127.0.0.1 --connect-port 30001
+persist-proxy server \
+  --listen-host 123.45.6.78 \
+  --listen-port 30002 \
+  --connect-host 127.0.0.1 \
+  --connect-port 30001
 ```
 
 ## Why persist-proxy?
 
-I built this program because I personally run Windows 10 as my main OS, and Ubuntu on a second machine. I use 
+I built this program because I personally run Windows 10 as my main OS, and Ubuntu on a second machine. I use
 [VcXsrv](https://sourceforge.net/projects/vcxsrv/) on Windows as a display for my X applications. When I undock
-my laptop, my connection shifts from ethernet to Wifi, I lose my X connections, and all my Ubuntu applications 
+my laptop, my connection shifts from ethernet to Wifi, I lose my X connections, and all my Ubuntu applications
 close. With persist-proxy, instead of connecting directly to the VcXsrv, the apps connect to the proxy instead.
 When my connection is lost, the applications momentarily freeze until the connection is reestablished. They
-pick up where they left off. 
+pick up where they left off.
 
 ## How does it work?
 
