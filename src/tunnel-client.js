@@ -18,6 +18,8 @@ const tunnelClient = (config) => (userClientSocket) => {
   var lastPacketReceived = 0;
 
   userClientSocket.setNoDelay();
+  userClientSocket.setKeepAlive(true, 5000);
+
   console.log(`${name}: Client connected`);
   const _send = (packet) => {
     const ts = tunnelServer; // Save because this gets erased on error
@@ -171,6 +173,7 @@ const tunnelClient = (config) => (userClientSocket) => {
     const tunnelServerSocket = net.connect(config.connect[0], () => {
       console.log(`${name}: Connected to tunnelServer: ${hostPort}`);
       tunnelServerSocket.setNoDelay();
+      tunnelServerSocket.setKeepAlive(true, 5000);
       tunnelServer = {
         socket: tunnelServerSocket,
         writer: new serialStream.SerialStreamWriter(tunnelServerSocket),
