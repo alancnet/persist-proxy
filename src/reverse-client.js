@@ -20,6 +20,18 @@ const reverseClient = (config) => {
   const userServers = {};
   const pipes = {}
   const transport = transports.getTransport(tunnelServerConfig.host, tunnelServerConfig.port);
+  const tearDownAndRestart = () => {
+    Object.keys(userServers).forEach((id) => {
+      const userServer = userServers[id];
+      if (userServer.socket) {
+        debug.log(`${userServer.name}: Disconnecting bifurcated connection.`);
+        userServer.socket.end();
+      }
+    });
+    setTimeout(() => {
+      reverseClient(config);
+    }, 1000);
+  };
   const tunnelServerSocket = transport.provider.connect(tunnelServerConfig, () => {
     tunnelServer = {
       socket: tunnelServerSocket,
@@ -28,19 +40,6 @@ const reverseClient = (config) => {
     };
 
     tunnelServer.socket.setNoDelay();
-
-    const tearDownAndRestart = () => {
-      Object.keys(userServers).forEach((id) => {
-        const userServer = userServers[id];
-        if (userServer.socket) {
-          debug.log(`${userServer.name}: Disconnecting bifurcated connection.`);
-          userServer.socket.end();
-        }
-      });
-      setTimeout(() => {
-        reverseClient(config);
-      }, 1000);
-    }
 
     tunnelServer.socket.on('error', (err) => {
       debug.log(`${name}: Error on tunnel server socket: ${err}`);
