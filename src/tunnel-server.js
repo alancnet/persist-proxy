@@ -14,7 +14,6 @@ const tunnelServer = (config) => (tunnelClientSocket) => {
   const name = "--------"
   console.log(`${name}: Client connected...`)
   tunnelClientSocket.setNoDelay();
-  tunnelClientSocket.setKeepAlive(true, 5000);
   const tunnelClient = {
     socket: tunnelClientSocket,
     reader: new serialStream.SerialStreamReader(tunnelClientSocket),
@@ -97,12 +96,19 @@ const session = (ident, tunnelClient, config) => {
   }
 
   const begin = () => {
+    tunnelClient.socket.setKeepAlive(true, 1000);
+    tunnelClient.socket.setTimeout(5000);
+
     tunnelClient.socket.on('error', (err) => {
       if (!terminated) console.info(`${name}: Tunnel client error on active session: ${err}`)
       tunnelClient = null;
     })
     tunnelClient.socket.on('end', () => {
       if (!terminated) console.info(`${name}: Tunnel client disconnected on active session`);
+      tunnelClient = null;
+    });
+    tunnelClient.socket.on('timeout', () => {
+      if (!terminated) console.info(`${name}: Tunnel client timeout on active session`);
       tunnelClient = null;
     });
     tunnelClient.writer.writeDoubleLE(-lastPacketReceived);
@@ -197,7 +203,8 @@ const session = (ident, tunnelClient, config) => {
       // success
       userServerSocket = newSocket;
       userServerSocket.setNoDelay();
-      userServerSocket.setKeepAlive(true, 5000);
+      userServerSocket.setKeepAlive(true, 1000);
+      userServerSocket.setTimeout(5000);
       userServerSocket.on('data', (buffer) => {
         const savedBuffer = Buffer.from(buffer);
         send((writer) => {
@@ -207,6 +214,12 @@ const session = (ident, tunnelClient, config) => {
       })
       userServerSocket.on('end', () => {
         console.log(`${name}: User server disconnected`);
+        send((writer) => {
+          writer.writeUInt8(consts.END);
+        }, true);
+      })
+      userServerSocket.on('timeout', () => {
+        console.log(`${name}: User server timeout`);
         send((writer) => {
           writer.writeUInt8(consts.END);
         }, true);

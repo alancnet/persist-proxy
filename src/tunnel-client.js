@@ -18,7 +18,8 @@ const tunnelClient = (config) => (userClientSocket) => {
   var lastPacketReceived = 0;
 
   userClientSocket.setNoDelay();
-  userClientSocket.setKeepAlive(true, 5000);
+  userClientSocket.setKeepAlive(true, 1000);
+  userClientSocket.setTimeout(5000);
 
   console.log(`${name}: Client connected`);
   const _send = (packet) => {
@@ -73,6 +74,14 @@ const tunnelClient = (config) => (userClientSocket) => {
 
   userClientSocket.on('end', () => {
     console.log(`${name}: User client disconnected`);
+    send((writer) => {
+      terminated = true;
+      writer.writeUInt8(consts.END);
+    })
+  })
+
+  userClientSocket.on('timeout', () => {
+    console.log(`${name}: User client timeout`);
     send((writer) => {
       terminated = true;
       writer.writeUInt8(consts.END);
@@ -174,6 +183,8 @@ const tunnelClient = (config) => (userClientSocket) => {
       console.log(`${name}: Connected to tunnelServer: ${hostPort}`);
       tunnelServerSocket.setNoDelay();
       tunnelServerSocket.setKeepAlive(true, 5000);
+      tunnelServerSocket.setTimeout(5000);
+
       tunnelServer = {
         socket: tunnelServerSocket,
         writer: new serialStream.SerialStreamWriter(tunnelServerSocket),
@@ -199,6 +210,14 @@ const tunnelClient = (config) => (userClientSocket) => {
 
     tunnelServerSocket.on('end', () => {
       console.log(`${name}: Disconnected from tunnelServer: ${hostPort}`);
+      tunnelServer = null;
+      if (!terminated) {
+        setTimeout(connectToTunnelServer, 1000);
+      }
+    });
+
+    tunnelServerSocket.on('timeout', () => {
+      console.log(`${name}: Timeout on tunnelServer: ${hostPort}`);
       tunnelServer = null;
       if (!terminated) {
         setTimeout(connectToTunnelServer, 1000);
