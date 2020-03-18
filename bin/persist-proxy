@@ -1,0 +1,64 @@
+#!/usr/bin/env node
+
+/*
+  definition of terms:
+
+  bind: Listen on a port and emit sockets
+  socket: an active connection to some remote
+  server: AMBIGUOUS - The listener of connections
+  client: AMBIGUOUS - The initiator of the connection
+  peer: either the client or the server on a socket
+  userClient (or UC): The software on the outside that is oblivious to this process
+    that is connecting to the tunnelServer
+  userServer (or US): The software on the outside that is oblivious to this process
+    that is listening for connections
+  tunnelClient (or TC): This software on the tunnelClient side that pretends
+    to be a server, but resolves the connection with a tunnel
+  tunnelServer (or TS): This software on the tunnelServer side that
+    pretents to be a client connecting to the tunnelServer.
+  tunnel: The sum of all parts connecting the tunnelClient with the tunnelServer
+
+*/
+
+const bind = require('../src/bind');
+const args = require('yargs-parser')(process.argv.slice(2));
+
+const tunnelClient = require('../src/tunnel-client');
+const tunnelServer = require('../src/tunnel-server');
+
+const mode = args._[0]
+
+const rxx = require('alco/rxx');
+rxx.assign();
+
+var mainStream;
+switch (args._[0]) {
+  case "client":
+    bind(args)
+      .forEach(tunnelClient({
+        connectHost: args['connect-host'],
+        connectPort: args['connect-port']
+      }));
+    break;
+  case "server":
+    bind(args)
+      .forEach(tunnelServer({
+        connectHost: args['connect-host'],
+        connectPort: args['connect-port']
+      }));
+    break;
+  default:
+    console.log(`
+Usage: persist-proxy <mode> [options]
+Modes:
+  server - Accepts connections and forwards them to a server.
+  client - Accepts
+Options:
+  --listen-host <host>
+  --listen-port <port>
+  --connect-host <host>
+  --connect-port <port>
+`);
+    process.exit(1);
+    break;
+}
