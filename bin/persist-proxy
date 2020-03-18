@@ -25,11 +25,13 @@ const args = require('yargs-parser')(process.argv.slice(2));
 
 const tunnelClient = require('../src/tunnel-client');
 const tunnelServer = require('../src/tunnel-server');
+const reverseClient = require('../src/reverse-client');
+const reverseServer = require('../src/reverse-server');
 const forward = require('../src/forward');
 
 const toArray = (v) => v === undefined ? [] : v instanceof Array ? v : [v];
 const parseAddress = (addr) => {
-  const words = addr.split(':');
+  const words = (addr.toString()).split(':');
   if (words.length % 2 == 1) words.unshift('0.0.0.0');
   const ret = {
     listen: {
@@ -68,6 +70,19 @@ toArray(args.forward)
     .forEach(forward(config))
   })
 
+toArray(args['reverse-server'])
+  .map(parseAddress)
+  .forEach((config) => {
+    bind(config.listen)
+    .forEach(reverseServer(config))
+  })
+
+toArray(args['reverse-client'])
+  .map(parseAddress)
+  .forEach((config) => {
+    reverseClient(config)
+  })
+
 switch (args._[0]) {
   case "client":
     bind(args)
@@ -93,10 +108,12 @@ Options:
   --client [listen-host:]listen-port:host:port
   --server [listen-host:]listen-port:service-host:service-port
   --forward [listen-host:]listen-port:host:port[:host:port...]
-
+  --reverse-server [listen-host:]listen-port
+  --reverse-client service-host:service-port:host:port:listen-host:listen-port
+  
     listen-host  - A local address to bind to for incoming connections.
     listen-port  - A local port for listen-host.
-    host         - A remote host that is running with --server.
+    host         - A remote host running with --server or --reverse-server.
     port         - A remote port for host.
     service-host - A local or remote host to the service you are proxying.
     service-port - A remote port for service-host.
