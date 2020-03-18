@@ -14,8 +14,10 @@
   "dependencies": {
     "alco": "0.0.3",
     "rx": "^4.1.0",
+    "selfsigned": "^1.10.7",
     "serial-stream": "0.0.2",
     "uuid": "^3.0.0",
+    "ws": "^7.2.3",
     "yargs-parser": "^4.0.2"
   },
   "devDependencies": {

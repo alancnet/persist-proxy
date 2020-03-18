@@ -28,10 +28,11 @@ function main(argv) {
   const reverseServer = require('./reverse-server');
   const forward = require('./forward');
   const transports = require('./transports');
+  const wssServer = require('./wss-server');
 
   const toArray = (v) => v === undefined ? [] : v instanceof Array ? v : [v];
   const parseAddress = (addr) => {
-    const words = (addr.toString()).split(':');
+    const words = (addr.toString()).split('://').join(';//').split(':').map(s => s.split(';//').join('://'));
     if (words.length % 2 == 1) words.unshift('0.0.0.0');
     const ret = {
       listen: {
@@ -85,6 +86,12 @@ function main(argv) {
     .map(parseAddress)
     .forEach((config) => {
       reverseClient(config)
+    })
+  
+  toArray(args['wss-server'])
+    .map(parseAddress)
+    .forEach((config) => {
+      wssServer(config)
     })
 
   switch (args._[0]) {
