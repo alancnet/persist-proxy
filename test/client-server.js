@@ -5,7 +5,7 @@ const tunnelClient = require('../src/tunnel-client');
 const tunnelServer = require('../src/tunnel-server');
 const debug = require('../src/debug');
 
-debug.provider = null; // Disable logging
+//debug.provider = null; // Disable logging
 
 describe('persist-proxy', () => {
   var output;
@@ -110,6 +110,31 @@ describe('persist-proxy', () => {
       ])
 
     })
+    it('should not time out with an idle connection.', function(done)  {
+      this.timeout(10000);
+      var c;
+      steps([
+        () => main('--client proc:2:proc:3:proc:4:proc:5 --server proc:3:proc:1 --server proc:4:proc:1 --server proc:5:proc:1'.split(' ')),
+        () => c = client('proc', 2),
+        () => c.write('hello'),
+        // () => {
+        //   vn._servers['proc:3'].close();
+        //   tunnelServer._system.sessions = {};
+        // },
+        () => 7000,
+        () => c.write('goodbye'),
+        () => 1000,
+        //findme
+        () => c.end(),
+        () => {
+          expect(c.output.join(';')).to.equal('connected;HELLO;GOODBYE');
+          expect(output.join(';')).to.equal('0 connected;0 hello;0 goodbye;0 end');
+          done();
+        }
+      ])
+
+    })
+
     it('should attempt to reconnect the client to the server after a timeout.', function(done) {
       this.timeout(20000);
       var c, session;
