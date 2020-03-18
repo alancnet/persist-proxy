@@ -73,6 +73,10 @@ const session = (ident, tunnelClient, config) => {
       while (userServerQueue.length) {
         userServerSocket.write(userServerQueue.shift());
       }
+      if (terminated) {
+        userServerSocket.end()
+        userServerSocket = null;
+      }
     }
   }
   const replayCache = (lastReceived) => {
@@ -158,8 +162,8 @@ const session = (ident, tunnelClient, config) => {
   const onEnd = () => {
     console.log(`${name}: Received END command. Tearing down.`);
     terminated = true;
-    userServerSocket.end();
-    tunnelClient.socket.end();
+    if (userServerSocket) userServerSocket.end();
+    if (tunnelClient) tunnelClient.socket.end();
     delete system.sessions[ident];
   }
 
