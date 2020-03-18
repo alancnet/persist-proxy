@@ -69,14 +69,21 @@ const reverseServer = (config) => (tunnelClientSocket) => {
 
   const onSendPacket = (id, buffer) => {
     const userClient = userClients[id];
-    if (userClient) userClient.socket.write(buffer);
+    if (userClient) {
+      userClient.socket.write(buffer);
+    } else {
+      console.warn(`${name}: Received SEND_PACKET from tunnelClient for non-existent userClient: ${id}`);
+    }
   };
 
   const onEnd = (id) => {
     const userClient = userClients[id];
     if (userClient) {
+      console.log(`${name}:${userClient.pipe.name}:${userClient.name}: Received END from tunnelClient.`);
       userClient.socket.end();
       delete userClients[id];
+    } else {
+      console.warn(`${name}: Received END from tunnelClient for non-existent userClient: ${id}`);
     }
   };
 
@@ -85,58 +92,66 @@ const reverseServer = (config) => (tunnelClientSocket) => {
       id: pipeId,
       name: pipeId.substr(0, 8),
       host: pipeHost,
-      port: pipePort
+      port: pipePort,
+      pipe: `tcp://${pipeHost}:${pipePort}`
     };
     pipes[pipe.id] = pipe;
-    console.log(`${name}: Listening on tcp://${pipe.host}:${pipe.port}`)
+    console.log(`${name}:${pipe.name}: Listening on ${pipe.pipe}`)
     pipe.bound = bind(pipe)
-      .subscribe((userClientSocket) => {
-      const userClient = {
-        id: uuid(),
-        socket: userClientSocket,
-        address: userClientSocket.address()
-      };
-      userClient.socket.setNoDelay();
-      userClient.name = userClient.id.substr(0, 8);
-      console.log(`${name}:${pipe.name}: User client connected: tcp://${userClient.address.address}:${userClient.address.port} -> tcp://${pipe.host}:${pipe.port}`)
-      userClients[userClient.id] = userClient;
+      .subscribe((userClientSocket) =>
+        {
+          const userClientId = uuid();
+          const userClientSocketAddress = userClientSocket.address();
+          const userClient = {
+            id: userClientId,
+            name: userClientId.substr(0, 8),
+            socket: userClientSocket,
+            address: userClientSocketAddress,
+            pipe: pipe,
+            tunnel: `tcp://${userClientSocketAddress.address}:${userClientSocketAddress.port} -> ${pipe.pipe}`
+          };
+          userClient.socket.setNoDelay();
+          userClient.name = userClient.id.substr(0, 8);
+          console.log(`${name}:${pipe.name}${userClient.name}: User client connected: ${userClient.tunnel}`)
+          userClients[userClient.id] = userClient;
 
-      tunnelClient.socket.cork();
-      tunnelClient.writer.writeUInt8(consts.CLIENT_CONNECT);
-      tunnelClient.writer.writeString(pipe.id);
-      tunnelClient.writer.writeString(userClient.id);
-      tunnelClient.writer.writeString(userClient.socket.address().address);
-      tunnelClient.writer.writeUInt16LE(userClient.socket.address().port);
-      tunnelClient.socket.uncork();
+          tunnelClient.socket.cork();
+          tunnelClient.writer.writeUInt8(consts.CLIENT_CONNECT);
+          tunnelClient.writer.writeString(pipe.id);
+          tunnelClient.writer.writeString(userClient.id);
+          tunnelClient.writer.writeString(userClient.socket.address().address);
+          tunnelClient.writer.writeUInt16LE(userClient.socket.address().port);
+          tunnelClient.socket.uncork();
 
-      userClient.socket.on('error', (err) => {
-        console.log((`${name}:${pipe.name}: User client socket error: ${err}`))
-        tunnelClient.socket.cork();
-        tunnelClient.writer.writeUInt8(consts.END);
-        tunnelClient.writer.writeString(pipe.id);
-        tunnelClient.socket.uncork();
-        delete userClients[pipe.id];
-      });
-      userClient.socket.on('end', () => {
-        console.log((`${name}:${pipe.name}: User client disconnected`))
-        tunnelClient.socket.cork();
-        tunnelClient.writer.writeUInt8(consts.END);
-        tunnelClient.writer.writeString(userClient.id);
-        tunnelClient.socket.uncork();
-        delete userClients[pipe.id];
-      });
+          userClient.socket.on('error', (err) => {
+            console.log((`${name}:${pipe.name}${userClient.name}: User client socket error: ${err}`))
+            tunnelClient.socket.cork();
+            tunnelClient.writer.writeUInt8(consts.END);
+            tunnelClient.writer.writeString(userClient.id);
+            tunnelClient.socket.uncork();
+            delete userClients[pipe.id];
+          });
+          userClient.socket.on('end', () => {
+            console.log((`${name}:${pipe.name}${userClient.name}: User client disconnected`))
+            tunnelClient.socket.cork();
+            tunnelClient.writer.writeUInt8(consts.END);
+            tunnelClient.writer.writeString(userClient.id);
+            tunnelClient.socket.uncork();
+            delete userClients[pipe.id];
+          });
 
-      userClient.socket.on('data', (buffer) => {
-        tunnelClient.socket.cork();
-        tunnelClient.writer.writeUInt8(consts.SEND_PACKET);
-        tunnelClient.writer.writeString(userClient.id);
-        tunnelClient.writer.writeBuffer(buffer);
-        tunnelClient.socket.uncork();
-      })
-    }, (err) => {
-      console.error((`${name}:${pipe.name}: Error listening on pipe: ${err}`))
-      tunnelClient.socket.end();
-    });
+          userClient.socket.on('data', (buffer) => {
+            tunnelClient.socket.cork();
+            tunnelClient.writer.writeUInt8(consts.SEND_PACKET);
+            tunnelClient.writer.writeString(userClient.id);
+            tunnelClient.writer.writeBuffer(buffer);
+            tunnelClient.socket.uncork();
+          })
+        }, (err) => {
+          console.error((`${name}:${pipe.name}: Error listening on pipe: ${err}`))
+          tunnelClient.socket.end();
+        }
+      );
   }
   readCommand();
 }
