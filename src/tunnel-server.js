@@ -267,6 +267,13 @@ const session = (ident, tunnelClient, config) => {
             writer.writeUInt8(consts.END);
           }, true);
         })
+        userServerSocket.on('error', (err) => {
+          debug.log(`${name}: Error on user server socket: ${err}`);
+          send((writer) => {
+            terminated = true;
+            writer.writeUInt8(consts.END);
+          })
+        })
         purgeUserServerQueue();
       }
     });
