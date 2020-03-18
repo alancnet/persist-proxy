@@ -8,8 +8,8 @@ const Queue = require('./queue');
 //   connectHost
 //   connectPort
 const tunnelClient = (config) => (userClientSocket) => {
-  userClientSocket.setNoDelay();
   const id = uuid();
+  const name = id.substr(0,8);
   const cache = [];
   const sendQueue = new Queue();
   var packetCount = 0;
@@ -17,9 +17,14 @@ const tunnelClient = (config) => (userClientSocket) => {
   var terminated = false;
   var lastPacketReceived = 0;
 
+  userClientSocket.setNoDelay();
+  console.log(`${name}: Client connected`);
   const _send = (packet) => {
-    tunnelServer.writer.writeDoubleLE(packet.sequence);
-    packet.send(tunnelServer.writer);
+    const ts = tunnelServer; // Save because this gets erased on error
+    ts.writer.writeDoubleLE(packet.sequence);
+    ts.socket.cork();
+    packet.send(ts.writer);
+    ts.socket.uncork();
     cache.push(packet);
   }
 
@@ -37,13 +42,13 @@ const tunnelClient = (config) => (userClientSocket) => {
   }
 
   const replayCache = (lastReceived) => {
-    console.log("Replaying cache from ", lastReceived)
+    console.log(`${name}: Replaying from ${lastReceived}`);
     cache.forEach((packet) => {
       if (packet.sequence > lastReceived) {
         _send(packet);
       }
     })
-    console.log("Stream is live");
+    console.log(`${name}: Stream is live`);
     purgeQueue();
   }
 
@@ -65,7 +70,9 @@ const tunnelClient = (config) => (userClientSocket) => {
   });
 
   userClientSocket.on('end', () => {
+    console.log(`${name}: User client disconnected`);
     send((writer) => {
+      terminated = true;
       writer.writeUInt8(consts.END);
     })
   })
@@ -73,6 +80,7 @@ const tunnelClient = (config) => (userClientSocket) => {
   userClientSocket.on('error', (err) => {
     console.info(`Error on user client socket: ${err}`)
     send((writer) => {
+      terminated = true;
       writer.writeUInt8(consts.END);
     })
   })
@@ -110,6 +118,8 @@ const tunnelClient = (config) => (userClientSocket) => {
     //console.log(`Cache purged from ${l} to ${cache.length}`);
   }
   const onEnd = () => {
+    console.log(`${name}: Received END command. Tearing down.`);
+    terminated = true;
     userClientSocket.end();
     send((writer) => {
       writer.writeUInt8(consts.END);
@@ -156,10 +166,10 @@ const tunnelClient = (config) => (userClientSocket) => {
 
   const connectToTunnelServer = () => {
     tunnelServer = null;
-    const tunnelServerSocket = net.connect({
-      host: config.connectHost,
-      port: config.connectPort
-    }, () => {
+    const hostPort = `tcp://${config.connect[0].host}:${config.connect[0].port}`;
+    console.log(`${name}: Connecting to tunnelServer: ${hostPort}`);
+    const tunnelServerSocket = net.connect(config.connect[0], () => {
+      console.log(`${name}: Connected to tunnelServer: ${hostPort}`);
       tunnelServerSocket.setNoDelay();
       tunnelServer = {
         socket: tunnelServerSocket,
@@ -172,16 +182,20 @@ const tunnelClient = (config) => (userClientSocket) => {
         if (hello != consts.HELLO) console.error(`Invalid tunnelServer hello: ${hello}`);
         else listenToTunnelServer();
       });
+      console.log(`${name}: Sending replay signal: ${lastPacketReceived}`);
       tunnelServer.writer.writeDoubleLE(-lastPacketReceived);
     });
 
     tunnelServerSocket.on('error', (err) => {
-      console.warn(`Unable to connect to tunnelServer: ${err}`);
+      console.log(`${name}: Error communicating with tunnelServer: ${err}`);
       tunnelServer = null;
-      setTimeout(connectToTunnelServer, 1000);
+      if (!terminated) {
+        setTimeout(connectToTunnelServer, 1000);
+      }
     });
 
     tunnelServerSocket.on('end', () => {
+      console.log(`${name}: Disconnected from tunnelServer: ${hostPort}`);
       tunnelServer = null;
       if (!terminated) {
         setTimeout(connectToTunnelServer, 1000);

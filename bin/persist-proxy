@@ -26,12 +26,40 @@ const args = require('yargs-parser')(process.argv.slice(2));
 const tunnelClient = require('../src/tunnel-client');
 const tunnelServer = require('../src/tunnel-server');
 
-const mode = args._[0]
+const toArray = (v) => v === undefined ? [] : v instanceof Array ? v : [v];
+const parseAddress = (addr) => {
+  const words = addr.split(':');
+  if (words.length % 2 == 1) words.unshift('0.0.0.0');
+  const ret = {
+    listen: {
+      host: words[0],
+      port: parseInt(words[1])
+    },
+    connect: []
+  };
+  for (var i = 2; i < words.length; i+= 2) {
+    ret.connect.push({
+      host: words[i],
+      port: words[i+1]
+    });
+  }
+  return ret;
+}
 
-const rxx = require('alco/rxx');
-rxx.assign();
+toArray(args.client)
+  .map(parseAddress)
+  .forEach((config) => {
+    bind(config.listen)
+    .forEach(tunnelClient(config))
+  })
 
-var mainStream;
+toArray(args.server)
+  .map(parseAddress)
+  .forEach((config) => {
+    bind(config.listen)
+    .forEach(tunnelServer(config))
+  })
+
 switch (args._[0]) {
   case "client":
     bind(args)
@@ -47,18 +75,29 @@ switch (args._[0]) {
         connectPort: args['connect-port']
       }));
     break;
-  default:
-    console.log(`
-Usage: persist-proxy <mode> [options]
-Modes:
-  server - Accepts connections and forwards them to a server.
-  client - Accepts
+}
+
+if (args.help) {
+  console.log(`
+Usage: persist-proxy [options]
+
 Options:
-  --listen-host <host>
-  --listen-port <port>
-  --connect-host <host>
-  --connect-port <port>
-`);
-    process.exit(1);
-    break;
+  --client [listen-host:]listen-port:host:port[:host:port...]
+  --server [listen-host:]listen-port:service-host:service-port
+
+    listen-host  - A local address to bind to for incoming connections.
+    listen-port  - A local port for listen-host.
+    host         - A remote host that is running with --server.
+    port         - A remote port for host.
+    service-host - A local or remote host to the service you are proxying.
+    service-port - A remote port for service-host.
+
+Example:
+  persist-proxy --server 30001:127.0.0.1:80
+  persist-proxy --client 8080:123.45.6.78:30001
+
+  persist-proxy --server 172.20.0.1:30000:172.20.0.100:80
+  persist-proxy --client 0.0.0.0:8080:172.20.0.1:30000
+  `);
+  process.exit(1);
 }
