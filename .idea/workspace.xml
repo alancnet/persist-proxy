@@ -2,9 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="246581ef-4a69-471b-90c1-48384a7e4fe1" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/consts.js" afterPath="$PROJECT_DIR$/src/consts.js" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/tunnel-client.js" afterPath="$PROJECT_DIR$/src/tunnel-client.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/tunnel-server.js" afterPath="$PROJECT_DIR$/src/tunnel-server.js" />
     </list>
     <ignored path="persist-proxy.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -27,8 +25,8 @@
       <file leaf-file-name="tunnel-client.js" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/tunnel-client.js">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="0">
-              <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+            <state relative-caret-position="216">
+              <caret line="190" column="0" selection-start-line="190" selection-start-column="0" selection-end-line="190" selection-end-column="0" />
               <folding />
             </state>
           </provider>
@@ -377,8 +375,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/tunnel-client.js">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+        <state relative-caret-position="216">
+          <caret line="190" column="0" selection-start-line="190" selection-start-column="0" selection-end-line="190" selection-end-column="0" />
           <folding />
         </state>
       </provider>
